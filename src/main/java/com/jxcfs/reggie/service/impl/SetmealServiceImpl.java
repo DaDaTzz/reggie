@@ -14,11 +14,15 @@ import com.jxcfs.reggie.pojo.*;
 import com.jxcfs.reggie.service.*;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.cache.CacheProperties;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -36,6 +40,8 @@ public class SetmealServiceImpl extends ServiceImpl<SetmealMapper, Setmeal> impl
     private DishFlavorService dishFlavorService;
     @Resource
     private DishService dishService;
+    @Resource
+    private RedisTemplate redisTemplate;
 
 
     /**
@@ -86,6 +92,7 @@ public class SetmealServiceImpl extends ServiceImpl<SetmealMapper, Setmeal> impl
             setmealDish.setSetmealId(setmealDto.getId());
         }
         setmealDishService.saveBatch(setmealDishes);
+        redisTemplate.delete(setmealDto.getCategoryId());
         return R.success("添加套餐成功");
     }
 
@@ -103,7 +110,7 @@ public class SetmealServiceImpl extends ServiceImpl<SetmealMapper, Setmeal> impl
             queryWrapper.eq(Setmeal::getId, id);
             queryWrapper.eq(Setmeal::getStatus, 1);
             List<Setmeal> list = list(queryWrapper);
-            if(list.size() > 0){
+            if(list != null){
                 throw new CustomException("删除的套餐还在售卖状态，请先停售！");
             }
         }
@@ -115,6 +122,9 @@ public class SetmealServiceImpl extends ServiceImpl<SetmealMapper, Setmeal> impl
             setmealDishMapper.delete(queryWrapper);
         }
         setmealMapper.deleteBatchIds(list1);
+        // 清空缓存
+        Set keys = redisTemplate.keys("*");
+        redisTemplate.delete(keys);
         return R.success("删除成功！");
 
 
@@ -130,6 +140,9 @@ public class SetmealServiceImpl extends ServiceImpl<SetmealMapper, Setmeal> impl
         for (String id : ids) {
             setmealMapper.updateStatus1ById(id);
         }
+        // 清空缓存
+        Set keys = redisTemplate.keys("*");
+        redisTemplate.delete(keys);
         return R.success("启售成功");
     }
 
@@ -143,6 +156,9 @@ public class SetmealServiceImpl extends ServiceImpl<SetmealMapper, Setmeal> impl
         for (String id : ids) {
             setmealMapper.updateStatus0ById(id);
         }
+        // 清空缓存
+        Set keys = redisTemplate.keys("*");
+        redisTemplate.delete(keys);
         return R.success("停售成功");
     }
 
@@ -165,6 +181,13 @@ public class SetmealServiceImpl extends ServiceImpl<SetmealMapper, Setmeal> impl
      */
     @Override
     public R<List<DishDto>> list(Long categoryId, Long status) {
+        // 先从缓存中取
+        List<DishDto> ls = (List<DishDto>) redisTemplate.opsForValue().get(categoryId.toString() );
+        // 如果有则直接返回
+        if(ls != null){
+            return R.success(ls);
+        }
+        // 如果没有则查数据库，并将查到的数据缓存起来
         LambdaQueryWrapper<Setmeal> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(Setmeal::getCategoryId,categoryId);
         Setmeal setmeal = this.getOne(queryWrapper);
@@ -189,6 +212,8 @@ public class SetmealServiceImpl extends ServiceImpl<SetmealMapper, Setmeal> impl
             Dish d = dishService.getOne(queryWrapper3);
             dishDto.setImage(d.getImage());
         }
+        // 存入redis，过期时间60分钟
+        redisTemplate.opsForValue().set(categoryId.toString(), dishDtos,60L, TimeUnit.MINUTES);
         return R.success(dishDtos);
     }
 

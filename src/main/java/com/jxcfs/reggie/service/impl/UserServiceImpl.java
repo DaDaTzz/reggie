@@ -10,12 +10,14 @@ import com.jxcfs.reggie.service.UserService;
 import com.jxcfs.reggie.utils.SMSUtils;
 import com.jxcfs.reggie.utils.ValidateCodeUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @Slf4j
@@ -25,6 +27,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private UserMapper userMapper;
     @Resource
     private HttpServletRequest request;
+    @Resource
+    private RedisTemplate redisTemplate;
 
 
     /**
@@ -39,12 +43,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if(!StringUtils.isEmpty(phone)){
             String code = ValidateCodeUtils.generateValidateCode(4).toString();
             // 调用阿里云api发送短信验证码
-            log.info("code = {}",code);
-            //SMSUtils.sendMessage("瑞吉外卖","" , phone,code);
+            log.info("生成的验证码为：{}",code);
+            // templateCode = SMS_460765534
+            // SMSUtils.sendMessage("瑞吉外卖","SMS_460765534" , phone,code);
             request.getSession().setAttribute(phone, code);
-            return R.success("手机验证码发送成功");
+
+            // 使用redis缓存短信验证码,设置有效时间
+            redisTemplate.opsForValue().set(phone, code,5L, TimeUnit.MINUTES);
+
+            return R.success("短信验证码发送成功");
         }
-        return R.error("短信发送失败");
+        return R.error("短信验证码发送失败");
     }
 
     /**
@@ -55,7 +64,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     public R<User> login(Map map) {
         String phone = map.get("phone").toString();
-        if(phone != "" && phone != null){
+        String code = map.get("code").toString();
+        // String codeInSession = request.getSession().getAttribute(phone).toString();
+        Object codeInRedis = redisTemplate.opsForValue().get(phone);
+        if(codeInRedis != null && codeInRedis.equals(code)){
             LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
             queryWrapper.eq(User::getPhone,phone);
             User user = this.getOne(queryWrapper);
@@ -67,6 +79,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 this.save(user);
             }
             request.getSession().setAttribute("userId",user.getId());
+            // 如果登录成功，删除redis中的验证码信息
+            redisTemplate.delete(phone);
             return R.success(user);
         }
         return R.error("登录失败");
