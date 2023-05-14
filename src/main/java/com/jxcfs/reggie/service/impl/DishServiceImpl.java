@@ -9,6 +9,7 @@ import com.jxcfs.reggie.mapper.*;
 import com.jxcfs.reggie.pojo.*;
 import com.jxcfs.reggie.service.*;
 import org.springframework.beans.BeanUtils;
+import org.springframework.cache.annotation.CachePut;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
