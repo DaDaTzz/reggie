@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jxcfs.reggie.mapper.CategoryMapper">
+
+    <select id="selectByType" resultType="com.jxcfs.reggie.pojo.Category">
+        select * from category where type = #{type} and is_deleted = 0
+    </select>
+    <select id="selectDishWithCategoryByid" resultType="com.jxcfs.reggie.pojo.Category">
+        select count(*) from dish s join c
+    </select>
+</mapper>

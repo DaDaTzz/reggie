@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jxcfs.reggie.mapper.DishMapper">
+    <update id="updateStatus1ById">
+        update dish set status = 1 where id = #{id}
+    </update>
+
+    <update id="updateStatus0ById">
+        update dish set status = 0 where id = #{id}
+    </update>
+
+
+
+    <select id="selectByCategoryId" resultType="com.jxcfs.reggie.pojo.Dish">
+        select * from dish where is_deleted = 0 and  category_id = #{categoryId} and status = 1
+    </select>
+
+
+    <resultMap id="s" type="com.jxcfs.reggie.dto.DishDto">
+        <result property="id" column="did"></result>
+        <result property="name" column="dname"/>
+        <result property="categoryId" column="dcategory_id"/>
+        <result property="price" column="dprice"/>
+        <result property="code" column="dcode"/>
+        <result property="image" column="dimage"/>
+        <result property="description" column="ddescription"/>
+        <result property="status" column="dstatus"/>
+        <result property="sort" column="dsort"/>
+        <result property="createTime" column="dcreateTime"/>
+        <result property="updateTime" column="dupdate_time"/>
+        <result property="createUser" column="dcreate_user"/>
+        <result property="updateUser" column="dupdate_user"/>
+        <result property="isDeleted" column="dis_deleted"/>
+        <association property="flavors" javaType="com.jxcfs.reggie.pojo.DishFlavor">
+            <result property="id" column="fid"/>
+            <result property="dishId" column="fdish_id"/>
+            <result property="name" column="fname"/>
+            <result property="value" column="fvalue"/>
+            <result property="createTime" column="fcreate_time"/>
+            <result property="updateTime" column="fupdate_time"/>
+            <result property="createUser" column="fcreate_user"/>
+            <result property="updateUser" column="fupdate_user"/>
+            <result property="isDeleted" column="fis_deleted"/>
+        </association>
+    </resultMap>
+    <select id="selectDishDtoByDishId" resultMap="s">
+        select
+            d.id as did,d.name as dname,d.category_id dcategory_id,d.price dprice,d.code dcode,d.image dimage,d.description ddescription,d.status dstatus,d.sort dsort,d.create_time dcreate_time,d.update_time dupdate_time,d.create_user dcreate_user,d.update_user dupdate_user,d.is_deleted dis_deleted,
+            f.id fid,f.dish_id fdish_id,f.name fname,f.value fvalue,f.create_time fcreate_time,f.update_time fupdate_time,f.create_user fcreate_user,f.update_user fupdate_user,f.is_deleted fis_deleted
+        from dish d
+        left join dish_flavor f
+        on d.id = f.dish_id
+        where d.id = ${id}
+    </select>
+
+</mapper>
